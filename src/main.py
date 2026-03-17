@@ -53,11 +53,40 @@ async def _run_bot(cfg):
         logger.error("mode_not_implemented", mode=cfg.mode)
         return
 
-    # Create and start multi-pair manager
+    # Create multi-pair manager
     manager = MultiPairManager(cfg, exchange, risk_manager, db)
 
+    # Set shared state for dashboard
+    from src.dashboard import state as dash_state
+    dash_state.manager = manager
+    dash_state.db = db
+    dash_state.bot_mode = cfg.mode
+
+    # Start dashboard server alongside bot
+    import uvicorn
+    from src.dashboard.app import create_app
+
+    app = create_app()
+    server_config = uvicorn.Config(
+        app,
+        host=cfg.dashboard.host,
+        port=cfg.dashboard.port,
+        log_level="warning",
+    )
+    server = uvicorn.Server(server_config)
+
+    logger.info(
+        "dashboard_starting",
+        url=f"http://{cfg.dashboard.host}:{cfg.dashboard.port}",
+    )
+
     try:
-        await manager.start_all()
+        # Run bot and dashboard concurrently
+        import asyncio
+        await asyncio.gather(
+            manager.start_all(),
+            server.serve(),
+        )
     except KeyboardInterrupt:
         logger.info("bot_stopping", reason="keyboard_interrupt")
         await manager.stop_all()

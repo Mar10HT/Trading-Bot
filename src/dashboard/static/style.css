@@ -1,0 +1,41 @@
+/* Scrollbar */
+::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+}
+::-webkit-scrollbar-track {
+    background: #0a0a0a;
+}
+::-webkit-scrollbar-thumb {
+    background: #333;
+    border-radius: 3px;
+}
+
+/* Grid level visualization */
+.grid-level {
+    height: 4px;
+    border-radius: 2px;
+    transition: all 0.3s ease;
+}
+
+.grid-level-buy {
+    background: #22c55e;
+}
+
+.grid-level-sell {
+    background: #ef4444;
+}
+
+.grid-level-empty {
+    background: #333;
+}
+
+/* Pulse animation for active status */
+@keyframes pulse-dot {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
+}
+
+.pulse-dot {
+    animation: pulse-dot 2s ease-in-out infinite;
+}
