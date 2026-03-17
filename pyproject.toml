@@ -1,0 +1,38 @@
+[project]
+name = "trade-bot"
+version = "0.1.0"
+description = "Grid trading bot for Binance crypto markets"
+requires-python = ">=3.11"
+dependencies = [
+    "ccxt>=4.0",
+    "pydantic>=2.0",
+    "pydantic-settings>=2.0",
+    "pyyaml>=6.0",
+    "aiosqlite>=0.19",
+    "fastapi>=0.110",
+    "uvicorn>=0.27",
+    "websockets>=12.0",
+    "structlog>=24.0",
+    "httpx>=0.27",
+    "pandas>=2.0",
+    "click>=8.0",
+    "python-dotenv>=1.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "pytest-asyncio>=0.23",
+    "ruff>=0.3",
+]
+
+[project.scripts]
+trade-bot = "src.main:cli"
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
