@@ -19,7 +19,14 @@ class PaperExchange(AbstractExchange):
 
     def __init__(self, initial_balance: float = 50.0, fee_rate: float = 0.001):
         self.fee_rate = fee_rate
-        self._exchange = ccxt.binance({"enableRateLimit": True})
+        import aiohttp
+        # Use ThreadedResolver to avoid aiodns DNS issues on Windows
+        connector = aiohttp.TCPConnector(resolver=aiohttp.ThreadedResolver())
+        session = aiohttp.ClientSession(connector=connector)
+        self._exchange = ccxt.binance({
+            "enableRateLimit": True,
+            "session": session,
+        })
 
         # Simulated balances: {asset: Balance}
         self._balances: dict[str, Balance] = {

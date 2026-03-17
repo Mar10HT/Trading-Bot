@@ -5,8 +5,8 @@ mode: "paper"
 # Pairs to trade
 pairs:
   - pair: "BTC/USDT"
-    lower_price: 60000.0
-    upper_price: 70000.0
+    lower_price: 72000.0
+    upper_price: 76000.0
     num_grids: 5
     investment: 45.0  # USDT allocated to this pair
 
