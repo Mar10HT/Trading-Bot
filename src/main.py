@@ -31,11 +31,11 @@ def run(ctx):
 
 
 async def _run_bot(cfg):
-    """Main async bot loop."""
-    from src.core.grid_engine import GridEngine
+    """Main async bot loop using the strategy layer."""
     from src.core.risk_manager import RiskManager
     from src.exchange.paper import PaperExchange
     from src.storage.database import Database
+    from src.strategy.multi_pair_manager import MultiPairManager
 
     # Initialize components
     db = Database()
@@ -53,145 +53,17 @@ async def _run_bot(cfg):
         logger.error("mode_not_implemented", mode=cfg.mode)
         return
 
-    # Initialize grid engines for each pair
-    engines: list[GridEngine] = []
-    for pair_cfg in cfg.pairs:
-        engine = GridEngine(
-            pair=pair_cfg.pair,
-            lower_price=pair_cfg.lower_price,
-            upper_price=pair_cfg.upper_price,
-            num_grids=pair_cfg.num_grids,
-            investment=pair_cfg.investment,
-            fee_rate=cfg.exchange.fee_rate,
-        )
-        engines.append(engine)
-
-    # Start trading loop for each pair
-    import asyncio
-
-    tasks = []
-    for engine in engines:
-        task = asyncio.create_task(
-            _trading_loop(engine, exchange, risk_manager, db, cfg.exchange.poll_interval_seconds)
-        )
-        tasks.append(task)
-
-    logger.info("bot_running", num_pairs=len(engines))
+    # Create and start multi-pair manager
+    manager = MultiPairManager(cfg, exchange, risk_manager, db)
 
     try:
-        await asyncio.gather(*tasks)
+        await manager.start_all()
     except KeyboardInterrupt:
         logger.info("bot_stopping", reason="keyboard_interrupt")
+        await manager.stop_all()
     finally:
         await exchange.close()
         await db.close()
-
-
-async def _trading_loop(engine, exchange, risk_manager, db, poll_interval):
-    """Main trading loop for a single pair."""
-    import asyncio
-
-    from src.storage.models import OrderSide, OrderStatus
-
-    # Get initial price and initialize grid
-    ticker = await exchange.fetch_ticker(engine.pair)
-    current_price = ticker["last"]
-    logger.info("initial_price", pair=engine.pair, price=current_price)
-
-    actions = engine.initialize(current_price)
-    summary = engine.get_grid_summary()
-    logger.info("grid_summary", **summary)
-
-    # Place initial orders
-    placed_orders = {}
-    for action in actions:
-        valid, reason = risk_manager.check_order_valid(action.amount, action.price)
-        if not valid:
-            logger.warning("order_skipped", reason=reason, level=action.grid_level)
-            continue
-        try:
-            order = await exchange.create_limit_order(
-                engine.pair, action.side, action.amount, action.price
-            )
-            placed_orders[order.id] = action.grid_level
-            await db.save_order(order)
-        except ValueError as e:
-            logger.warning("order_failed", error=str(e), level=action.grid_level)
-
-    # Main polling loop
-    while not risk_manager.is_killed:
-        await asyncio.sleep(poll_interval)
-
-        try:
-            ticker = await exchange.fetch_ticker(engine.pair)
-            current_price = ticker["last"]
-
-            # Check drawdown
-            balances = await exchange.fetch_balance()
-            usdt = balances.get("USDT")
-            equity = usdt.total if usdt else 0
-            # Add value of held assets
-            for asset, bal in balances.items():
-                if asset != "USDT" and bal.total > 0:
-                    try:
-                        pair_ticker = await exchange.fetch_ticker(f"{asset}/USDT")
-                        equity += bal.total * pair_ticker["last"]
-                    except Exception:
-                        pass
-
-            safe, reason = risk_manager.check_drawdown(equity)
-            if not safe:
-                logger.critical("stopping_pair", pair=engine.pair, reason=reason)
-                # Cancel all open orders
-                open_orders = await exchange.fetch_open_orders(engine.pair)
-                for order in open_orders:
-                    await exchange.cancel_order(order.id, engine.pair)
-                break
-
-            # Check for filled orders and place new ones
-            open_orders = await exchange.fetch_open_orders(engine.pair)
-            open_ids = {o.id for o in open_orders}
-
-            # Find orders that were in our tracked list but are no longer open (= filled)
-            filled_levels = []
-            for order_id, level in list(placed_orders.items()):
-                if order_id not in open_ids:
-                    filled_levels.append((order_id, level))
-                    del placed_orders[order_id]
-
-            # Process filled orders
-            for order_id, level in filled_levels:
-                # Determine the side from the engine state
-                level_state = engine.level_states.get(level)
-                if level_state == "buy":
-                    side = OrderSide.BUY
-                elif level_state == "sell":
-                    side = OrderSide.SELL
-                else:
-                    continue
-
-                next_action = engine.on_order_filled(level, side)
-                if next_action:
-                    valid, reason = risk_manager.check_order_valid(
-                        next_action.amount, next_action.price
-                    )
-                    if valid:
-                        try:
-                            new_order = await exchange.create_limit_order(
-                                engine.pair, next_action.side,
-                                next_action.amount, next_action.price,
-                            )
-                            placed_orders[new_order.id] = next_action.grid_level
-                            await db.save_order(new_order)
-                        except ValueError as e:
-                            logger.warning("order_failed", error=str(e))
-
-            # Save grid state periodically
-            await db.save_grid_state(engine.pair, engine.get_state())
-
-        except Exception as e:
-            logger.error("loop_error", pair=engine.pair, error=str(e))
-            await asyncio.sleep(poll_interval)
 
 
 @cli.command()
