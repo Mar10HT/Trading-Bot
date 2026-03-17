@@ -195,6 +195,45 @@ async def _trading_loop(engine, exchange, risk_manager, db, poll_interval):
 
 
 @cli.command()
+@click.option("--pair", "-p", default="BTC/USDT", help="Trading pair")
+@click.option("--since", "-s", required=True, help="Start date (YYYY-MM-DD)")
+@click.option("--until", "-u", required=True, help="End date (YYYY-MM-DD)")
+@click.option("--lower", "-l", type=float, required=True, help="Grid lower price")
+@click.option("--upper", type=float, required=True, help="Grid upper price")
+@click.option("--grids", "-g", type=int, default=5, help="Number of grid levels")
+@click.option("--investment", "-i", type=float, default=45.0, help="Investment in USDT")
+@click.option("--timeframe", "-t", default="5m", help="Candle timeframe (1m, 5m, 15m, 1h)")
+@click.pass_context
+def backtest(ctx, pair, since, until, lower, upper, grids, investment, timeframe):
+    """Run backtest against historical data."""
+    from src.backtest.backtester import Backtester
+    from src.backtest.data_fetcher import fetch_ohlcv
+    from src.backtest.report import print_report
+
+    cfg = ctx.obj["config"]
+
+    click.echo(f"Fetching {pair} data from {since} to {until} ({timeframe} candles)...")
+    df = fetch_ohlcv(pair=pair, timeframe=timeframe, since=since, until=until)
+
+    if df.empty:
+        click.secho("No data fetched. Check pair and date range.", fg="red")
+        return
+
+    click.echo(f"Running backtest on {len(df)} candles...")
+
+    bt = Backtester(
+        pair=pair,
+        lower_price=lower,
+        upper_price=upper,
+        num_grids=grids,
+        investment=investment,
+        fee_rate=cfg.exchange.fee_rate,
+    )
+    result = bt.run(df)
+    print_report(result)
+
+
+@cli.command()
 @click.pass_context
 def info(ctx):
     """Show grid configuration summary."""
