@@ -23,15 +23,20 @@ class PositionTracker:
         self.total_fees = 0.0
         self.completed_cycles = 0
 
-        # Cost basis of current holdings, updated on each buy and reduced proportionally on sells.
+        # _cost_basis: cost of current remaining holdings (reduced proportionally on each sell).
+        # _total_buy_cost: cumulative cost of all buys ever (never decreases).
+        # realized_pnl = quote_received - (_total_buy_cost - _cost_basis)
+        #               = quote_received - cost_of_what_was_sold
         self._cost_basis = 0.0
+        self._total_buy_cost = 0.0
 
-    def record_fill(self, side: OrderSide, price: float, amount: float, fee: float):
+    def record_fill(self, side: OrderSide, price: float, amount: float, fee: float) -> None:
         """Record a filled order and update position tracking."""
         if side == OrderSide.BUY:
             cost = amount * price + fee
             self.base_holdings += amount
             self._cost_basis += cost
+            self._total_buy_cost += cost
         elif side == OrderSide.SELL:
             if self.base_holdings > 0:
                 # Reduce cost basis proportionally to the fraction sold
@@ -45,8 +50,9 @@ class PositionTracker:
 
     @property
     def realized_pnl(self) -> float:
-        """P&L from completed buy+sell cycles (quote received minus original buy cost)."""
-        return self.quote_received - (self._cost_basis if self.base_holdings <= 0 else 0)
+        """P&L from completed buy+sell cycles only (fees included)."""
+        cost_of_sold = self._total_buy_cost - self._cost_basis
+        return self.quote_received - cost_of_sold
 
     def unrealized_pnl(self, current_price: float) -> float:
         """P&L from unsold holdings valued at current market price."""

@@ -89,27 +89,27 @@ class OrderManager:
                 snapshot.status = OrderStatus.FILLED
                 await self.db.save_order(snapshot)
 
-                    # Record trade
-                    fee = snapshot.amount * snapshot.price * self.fee_rate
-                    trade = Trade(
-                        pair=self.pair,
-                        side=snapshot.side,
-                        price=snapshot.price,
-                        amount=snapshot.amount,
-                        fee=fee,
-                        grid_level=level,
-                    )
-                    await self.db.save_trade(trade)
+                # Record trade
+                fee = snapshot.amount * snapshot.price * self.fee_rate
+                trade = Trade(
+                    pair=self.pair,
+                    side=snapshot.side,
+                    price=snapshot.price,
+                    amount=snapshot.amount,
+                    fee=fee,
+                    grid_level=level,
+                )
+                await self.db.save_trade(trade)
 
-                    filled.append((level, snapshot.side, snapshot))
-                    logger.info(
-                        "order_filled",
-                        pair=self.pair,
-                        side=snapshot.side.value,
-                        price=snapshot.price,
-                        amount=snapshot.amount,
-                        level=level,
-                    )
+                filled.append((level, snapshot.side, snapshot))
+                logger.info(
+                    "order_filled",
+                    pair=self.pair,
+                    side=snapshot.side.value,
+                    price=snapshot.price,
+                    amount=snapshot.amount,
+                    level=level,
+                )
 
         return filled
 

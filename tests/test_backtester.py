@@ -1,5 +1,5 @@
-import pandas as pd
 import pytest
+import pandas as pd
 
 from src.backtest.backtester import Backtester
 from src.storage.models import OrderSide
@@ -45,12 +45,13 @@ class TestBacktesterBasic:
         assert result.total_candles == 100
 
     def test_flat_market_no_trades(self):
-        # If price stays at 65000, no grid levels should be crossed
+        # Price stays at 65000; candles have tiny high/low (±0.1%) — no grid level crossed
         prices = [65000] * 50
         df = make_candles(prices)
         bt = Backtester("BTC/USDT", 60000, 70000, 5, 45)
         result = bt.run(df)
-        # In a flat market, initial orders won't fill (high/low are very close to price)
+        # Grid levels are at 60k/62k/64k/66k/68k/70k; 65k±65 never reaches any of them
+        assert len(result.trades) == 0
         assert result.final_equity > 0
 
     def test_empty_df_raises(self):
@@ -84,6 +85,10 @@ class TestBacktesterWithMovement:
         assert result.final_equity > 0
         assert result.max_drawdown >= 0
         assert result.total_fees >= 0
+        # Both P&L fields must be present and numerically distinct from each other
+        assert hasattr(result, "realized_pnl")
+        assert hasattr(result, "total_return")
+        assert result.total_return == pytest.approx(result.final_equity - 45, abs=1e-6)
 
 
 class TestBacktesterRisk:

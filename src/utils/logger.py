@@ -1,12 +1,18 @@
 import logging
+import os
 import sys
 from pathlib import Path
 
 import structlog
 
 
-def setup_logging(level: str = "INFO", log_file: str | None = None):
-    """Configure structlog with console and optional file output."""
+def setup_logging(level: str = "INFO", log_file: str | None = None) -> None:
+    """Configure structlog with console and optional file output.
+
+    Output format is controlled by LOG_FORMAT env var:
+      - LOG_FORMAT=json  → JSON (suitable for log aggregators and production)
+      - anything else    → human-readable console output (default for dev)
+    """
     log_level = getattr(logging, level.upper(), logging.INFO)
 
     # Ensure log directory exists
@@ -25,13 +31,18 @@ def setup_logging(level: str = "INFO", log_file: str | None = None):
         force=True,
     )
 
+    # Use JSON renderer when explicitly requested via env var (e.g. in Docker/production).
+    # Default to human-readable console output for local development.
+    use_json = os.getenv("LOG_FORMAT", "").lower() == "json"
+    renderer = structlog.processors.JSONRenderer() if use_json else structlog.dev.ConsoleRenderer()
+
     # Configure structlog
     structlog.configure(
         processors=[
             structlog.contextvars.merge_contextvars,
             structlog.processors.add_log_level,
             structlog.processors.TimeStamper(fmt="iso"),
-            structlog.dev.ConsoleRenderer() if not log_file else structlog.processors.JSONRenderer(),
+            renderer,
         ],
         wrapper_class=structlog.make_filtering_bound_logger(log_level),
         context_class=dict,

@@ -20,14 +20,9 @@ class PaperExchange(AbstractExchange):
     def __init__(self, initial_balance: float = 50.0, fee_rate: float = 0.001):
         self.fee_rate = fee_rate
         self._on_fill_callbacks: list = []
-        import aiohttp
-        # Use ThreadedResolver to avoid aiodns DNS issues on Windows
-        connector = aiohttp.TCPConnector(resolver=aiohttp.ThreadedResolver())
-        session = aiohttp.ClientSession(connector=connector)
-        self._exchange = ccxt.binance({
-            "enableRateLimit": True,
-            "session": session,
-        })
+        # Exchange is initialized lazily on first async call to avoid creating
+        # aiohttp.ClientSession outside of an async context.
+        self._exchange: ccxt.binance | None = None
 
         # Simulated balances: {asset: Balance}
         self._balances: dict[str, Balance] = {
@@ -40,13 +35,28 @@ class PaperExchange(AbstractExchange):
         # Last known prices per pair
         self._last_prices: dict[str, float] = {}
 
+    async def _get_exchange(self) -> ccxt.binance:
+        """Return the ccxt exchange, initializing it on first call."""
+        if self._exchange is None:
+            import aiohttp
+            # Use ThreadedResolver to avoid aiodns DNS issues on Windows
+            connector = aiohttp.TCPConnector(resolver=aiohttp.ThreadedResolver())
+            session = aiohttp.ClientSession(connector=connector)
+            self._exchange = ccxt.binance({
+                "enableRateLimit": True,
+                "session": session,
+            })
+        return self._exchange
+
     async def close(self):
         """Close the ccxt exchange connection."""
-        await self._exchange.close()
+        if self._exchange:
+            await self._exchange.close()
 
     async def fetch_ticker(self, pair: str) -> dict:
         """Fetch real ticker from Binance public API."""
-        ticker = await self._exchange.fetch_ticker(pair)
+        exchange = await self._get_exchange()
+        ticker = await exchange.fetch_ticker(pair)
         self._last_prices[pair] = ticker["last"]
 
         # Check if any open orders should be filled
