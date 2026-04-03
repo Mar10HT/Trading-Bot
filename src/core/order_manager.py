@@ -66,13 +66,25 @@ class OrderManager:
 
         for order_id, level in list(self._tracked_orders.items()):
             if order_id not in open_ids:
-                # Order is no longer open → it was filled
                 snapshot = self._order_snapshots.pop(order_id, None)
                 del self._tracked_orders[order_id]
 
-                if snapshot:
-                    snapshot.status = OrderStatus.FILLED
-                    await self.db.save_order(snapshot)
+                if not snapshot:
+                    continue
+
+                # If the exchange already marked the order as cancelled (e.g. PaperExchange
+                # updates the shared Order object on cancel_order), skip it silently.
+                if snapshot.status == OrderStatus.CANCELLED:
+                    logger.debug(
+                        "order_cancelled_not_filled",
+                        pair=self.pair,
+                        order_id=order_id,
+                        level=level,
+                    )
+                    continue
+
+                snapshot.status = OrderStatus.FILLED
+                await self.db.save_order(snapshot)
 
                     # Record trade
                     fee = snapshot.amount * snapshot.price * 0.001
