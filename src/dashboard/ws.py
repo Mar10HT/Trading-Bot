@@ -1,32 +1,34 @@
 import asyncio
 import json
 
-from fastapi import APIRouter, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, Query, WebSocket, WebSocketDisconnect
 
 from src.dashboard import state
+from src.utils.config import EnvSettings
 
 router = APIRouter()
 
-# Connected WebSocket clients
-_clients: set[WebSocket] = set()
-
 
 @router.websocket("/ws")
-async def websocket_endpoint(ws: WebSocket):
-    """WebSocket endpoint for live status updates."""
+async def websocket_endpoint(ws: WebSocket, token: str | None = Query(default=None)):
+    """WebSocket endpoint for live status updates.
+
+    Pass ?token=<DASHBOARD_API_KEY> when authentication is enabled.
+    """
+    settings = EnvSettings()
+    if settings.dashboard_api_key and token != settings.dashboard_api_key:
+        await ws.close(code=1008)  # Policy violation
+        return
+
     await ws.accept()
-    _clients.add(ws)
 
     try:
         while True:
-            # Send status update every 5 seconds
             data = _get_live_data()
             await ws.send_json(data)
             await asyncio.sleep(5)
-    except WebSocketDisconnect:
-        _clients.discard(ws)
-    except Exception:
-        _clients.discard(ws)
+    except (WebSocketDisconnect, Exception):
+        pass
 
 
 def _get_live_data() -> dict:

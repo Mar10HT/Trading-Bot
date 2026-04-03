@@ -1,8 +1,9 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 
 from src.dashboard import state
+from src.dashboard.deps import require_api_key
 
-router = APIRouter(tags=["status"])
+router = APIRouter(tags=["status"], dependencies=[Depends(require_api_key)])
 
 
 @router.get("/status")

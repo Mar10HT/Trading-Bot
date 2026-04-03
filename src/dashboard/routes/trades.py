@@ -1,8 +1,9 @@
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, Depends, Query
 
 from src.dashboard import state
+from src.dashboard.deps import require_api_key
 
-router = APIRouter(tags=["trades"])
+router = APIRouter(tags=["trades"], dependencies=[Depends(require_api_key)])
 
 
 @router.get("/trades")

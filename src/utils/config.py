@@ -73,6 +73,9 @@ class EnvSettings(BaseSettings):
     binance_testnet_api_secret: str = ""
     telegram_bot_token: str = ""
     telegram_chat_id: str = ""
+    # Dashboard API key — set to a non-empty value to enable authentication.
+    # If empty, authentication is disabled (development only).
+    dashboard_api_key: str = ""
 
     model_config = {"env_file": ".env", "env_file_encoding": "utf-8"}
 
