@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import UTC, datetime
 from enum import Enum
 
 from pydantic import BaseModel, Field
@@ -24,7 +24,7 @@ class Order(BaseModel):
     amount: float
     status: OrderStatus = OrderStatus.PENDING
     grid_level: int = 0
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     filled_at: datetime | None = None
     fee: float = 0.0
 
@@ -38,7 +38,7 @@ class Trade(BaseModel):
     fee: float = 0.0
     realized_pnl: float = 0.0
     grid_level: int = 0
-    timestamp: datetime = Field(default_factory=datetime.utcnow)
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
 
 class GridState(BaseModel):
@@ -51,7 +51,7 @@ class GridState(BaseModel):
     active_sell_levels: list[int] = []
     investment: float = 0.0
     is_running: bool = False
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
 
 class Balance(BaseModel):

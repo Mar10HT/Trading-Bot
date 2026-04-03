@@ -1,5 +1,5 @@
 import json
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
 
 import aiosqlite
@@ -128,7 +128,7 @@ class Database:
         await self._connection.execute(
             """INSERT OR REPLACE INTO grid_states (pair, config_json, updated_at)
                VALUES (?, ?, ?)""",
-            (pair, json.dumps(state_dict), datetime.utcnow().isoformat()),
+            (pair, json.dumps(state_dict), datetime.now(UTC).isoformat()),
         )
         await self._connection.commit()
 

@@ -1,5 +1,5 @@
 import uuid
-from datetime import datetime
+from datetime import UTC, datetime
 
 import ccxt.async_support as ccxt
 import structlog
@@ -93,7 +93,7 @@ class PaperExchange(AbstractExchange):
             price=price,
             amount=amount,
             status=OrderStatus.OPEN,
-            created_at=datetime.utcnow(),
+            created_at=datetime.now(UTC),
         )
         self._open_orders[order_id] = order
 
@@ -178,7 +178,7 @@ class PaperExchange(AbstractExchange):
         """Simulate filling an order."""
         fee_amount = order.amount * order.price * self.fee_rate
         order.status = OrderStatus.FILLED
-        order.filled_at = datetime.utcnow()
+        order.filled_at = datetime.now(UTC)
         order.fee = fee_amount
 
         base_asset = order.pair.split("/")[0]
