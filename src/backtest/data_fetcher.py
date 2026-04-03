@@ -7,7 +7,7 @@ import structlog
 
 logger = structlog.get_logger()
 
-DATA_DIR = Path("data/historical")
+DATA_DIR = Path(__file__).parent.parent.parent / "data" / "historical"
 
 
 def fetch_ohlcv(

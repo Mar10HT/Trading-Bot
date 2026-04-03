@@ -6,7 +6,7 @@ import aiosqlite
 
 from src.storage.models import Order, OrderSide, OrderStatus, Trade
 
-DB_PATH = Path("data/trade_bot.db")
+DB_PATH = Path(__file__).parent.parent.parent / "data" / "trade_bot.db"
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS orders (
