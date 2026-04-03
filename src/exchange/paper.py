@@ -133,11 +133,13 @@ class PaperExchange(AbstractExchange):
         return [o for o in self._open_orders.values() if o.pair == pair]
 
     async def fetch_balance(self) -> dict[str, Balance]:
-        """Return simulated balances."""
-        # Update totals
-        for b in self._balances.values():
-            b.total = b.free + b.locked
-        return dict(self._balances)
+        """Return copies of simulated balances to prevent external mutation."""
+        result = {}
+        for asset, b in self._balances.items():
+            copy = b.model_copy()
+            copy.total = copy.free + copy.locked
+            result[asset] = copy
+        return result
 
     async def get_min_order_amount(self, pair: str) -> float:
         """Simulate Binance minimum order amounts."""
