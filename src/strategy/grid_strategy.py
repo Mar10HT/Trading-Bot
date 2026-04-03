@@ -139,7 +139,7 @@ class GridStrategy:
                 logger.info("periodic_status", price=self.current_price, **pnl)
 
         except Exception as e:
-            logger.error("tick_error", pair=self.pair, error=str(e))
+            logger.error("tick_error", pair=self.pair, error=str(e), exc_info=True)
 
     async def _check_risk(self):
         """Check drawdown and trigger kill switch if needed."""

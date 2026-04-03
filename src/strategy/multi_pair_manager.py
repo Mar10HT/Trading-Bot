@@ -71,7 +71,7 @@ class MultiPairManager:
         except asyncio.CancelledError:
             await strategy.stop()
         except Exception as e:
-            logger.error("strategy_crashed", pair=strategy.pair, error=str(e))
+            logger.error("strategy_crashed", pair=strategy.pair, error=str(e), exc_info=True)
             await strategy.stop()
 
     def get_all_status(self) -> list[dict]:
