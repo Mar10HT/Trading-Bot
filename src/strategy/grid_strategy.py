@@ -70,6 +70,19 @@ class GridStrategy:
 
         logger.info("strategy_starting", pair=self.pair, price=self.current_price)
 
+        # Set real initial capital for accurate drawdown tracking
+        balances = await self.exchange.fetch_balance()
+        real_equity = 0.0
+        usdt = balances.get("USDT")
+        if usdt:
+            real_equity += usdt.total
+        base_asset = self.pair.split("/")[0]
+        base = balances.get(base_asset)
+        if base and base.total > 0:
+            real_equity += base.total * self.current_price
+        if real_equity > 0:
+            self.risk_manager.set_initial_capital(real_equity)
+
         # Initialize grid
         actions = self.engine.initialize(self.current_price)
         summary = self.engine.get_grid_summary()

@@ -72,6 +72,15 @@ class RiskManager:
         self._kill_switch_active = True
         logger.critical("kill_switch_activated", reason=reason)
 
+    def set_initial_capital(self, equity: float) -> None:
+        """Override initial capital with the real starting equity.
+
+        Call this after fetching actual balances at bot startup so that
+        drawdown is measured from the true starting point, not the config value.
+        """
+        self.initial_capital = equity
+        logger.info("initial_capital_set", equity=equity)
+
     def reset_kill_switch(self):
         """Reset the kill switch (use with caution)."""
         self._kill_switch_active = False
