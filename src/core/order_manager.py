@@ -114,12 +114,24 @@ class OrderManager:
         return filled
 
     async def cancel_all(self):
-        """Cancel all tracked orders."""
+        """Cancel all tracked orders. Continues cancelling even if individual orders fail."""
+        failed = 0
         for order_id in list(self._tracked_orders.keys()):
-            await self.exchange.cancel_order(order_id, self.pair)
-            self._tracked_orders.pop(order_id, None)
-            self._order_snapshots.pop(order_id, None)
-        logger.info("all_orders_cancelled", pair=self.pair)
+            try:
+                await self.exchange.cancel_order(order_id, self.pair)
+            except Exception as e:
+                failed += 1
+                logger.warning(
+                    "cancel_order_failed",
+                    pair=self.pair,
+                    order_id=order_id,
+                    error=str(e),
+                )
+            finally:
+                self._tracked_orders.pop(order_id, None)
+                self._order_snapshots.pop(order_id, None)
+
+        logger.info("all_orders_cancelled", pair=self.pair, failed=failed)
 
     @property
     def active_order_count(self) -> int:
