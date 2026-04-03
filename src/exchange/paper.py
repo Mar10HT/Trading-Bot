@@ -19,6 +19,7 @@ class PaperExchange(AbstractExchange):
 
     def __init__(self, initial_balance: float = 50.0, fee_rate: float = 0.001):
         self.fee_rate = fee_rate
+        self._on_fill_callbacks: list = []
         import aiohttp
         # Use ThreadedResolver to avoid aiodns DNS issues on Windows
         connector = aiohttp.TCPConnector(resolver=aiohttp.ThreadedResolver())
@@ -209,9 +210,6 @@ class PaperExchange(AbstractExchange):
             amount=order.amount,
             fee=fee_amount,
         )
-
-    # Callbacks for filled orders (set by strategy)
-    _on_fill_callbacks: list = []
 
     def on_fill(self, callback):
         """Register a callback for when an order is filled."""
