@@ -53,6 +53,15 @@ class Database:
         self.db_path = db_path
         self._db: aiosqlite.Connection | None = None
 
+    @property
+    def _connection(self) -> aiosqlite.Connection:
+        """Return the active connection or raise if not connected."""
+        if self._db is None:
+            raise RuntimeError(
+                "Database is not connected. Call await db.connect() before using it."
+            )
+        return self._db
+
     async def connect(self):
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
         self._db = await aiosqlite.connect(self.db_path)
@@ -65,7 +74,7 @@ class Database:
             await self._db.close()
 
     async def save_order(self, order: Order):
-        await self._db.execute(
+        await self._connection.execute(
             """INSERT OR REPLACE INTO orders
                (id, pair, side, price, amount, status, grid_level, created_at, filled_at, fee)
                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
@@ -77,20 +86,20 @@ class Database:
                 order.fee,
             ),
         )
-        await self._db.commit()
+        await self._connection.commit()
 
     async def get_open_orders(self, pair: str | None = None) -> list[Order]:
         if pair:
-            cursor = await self._db.execute(
+            cursor = await self._connection.execute(
                 "SELECT * FROM orders WHERE status = 'open' AND pair = ?", (pair,)
             )
         else:
-            cursor = await self._db.execute("SELECT * FROM orders WHERE status = 'open'")
+            cursor = await self._connection.execute("SELECT * FROM orders WHERE status = 'open'")
         rows = await cursor.fetchall()
         return [self._row_to_order(row) for row in rows]
 
     async def save_trade(self, trade: Trade):
-        await self._db.execute(
+        await self._connection.execute(
             """INSERT INTO trades
                (pair, side, price, amount, fee, realized_pnl, grid_level, timestamp)
                VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
@@ -100,31 +109,31 @@ class Database:
                 trade.timestamp.isoformat(),
             ),
         )
-        await self._db.commit()
+        await self._connection.commit()
 
     async def get_trades(self, pair: str | None = None, limit: int = 100) -> list[Trade]:
         if pair:
-            cursor = await self._db.execute(
+            cursor = await self._connection.execute(
                 "SELECT * FROM trades WHERE pair = ? ORDER BY timestamp DESC LIMIT ?",
                 (pair, limit),
             )
         else:
-            cursor = await self._db.execute(
+            cursor = await self._connection.execute(
                 "SELECT * FROM trades ORDER BY timestamp DESC LIMIT ?", (limit,)
             )
         rows = await cursor.fetchall()
         return [self._row_to_trade(row) for row in rows]
 
     async def save_grid_state(self, pair: str, state_dict: dict):
-        await self._db.execute(
+        await self._connection.execute(
             """INSERT OR REPLACE INTO grid_states (pair, config_json, updated_at)
                VALUES (?, ?, ?)""",
             (pair, json.dumps(state_dict), datetime.utcnow().isoformat()),
         )
-        await self._db.commit()
+        await self._connection.commit()
 
     async def get_grid_state(self, pair: str) -> dict | None:
-        cursor = await self._db.execute(
+        cursor = await self._connection.execute(
             "SELECT config_json FROM grid_states WHERE pair = ?", (pair,)
         )
         row = await cursor.fetchone()
@@ -133,15 +142,15 @@ class Database:
         return None
 
     async def update_balance(self, asset: str, free: float, locked: float):
-        await self._db.execute(
+        await self._connection.execute(
             """INSERT OR REPLACE INTO balances (asset, free, locked)
                VALUES (?, ?, ?)""",
             (asset, free, locked),
         )
-        await self._db.commit()
+        await self._connection.commit()
 
     async def get_total_pnl(self) -> float:
-        cursor = await self._db.execute("SELECT COALESCE(SUM(realized_pnl), 0) FROM trades")
+        cursor = await self._connection.execute("SELECT COALESCE(SUM(realized_pnl), 0) FROM trades")
         row = await cursor.fetchone()
         return row[0]
 
