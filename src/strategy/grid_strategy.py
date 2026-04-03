@@ -45,7 +45,7 @@ class GridStrategy:
             fee_rate=fee_rate,
         )
 
-        self.order_manager = OrderManager(exchange, db, pair_config.pair)
+        self.order_manager = OrderManager(exchange, db, pair_config.pair, fee_rate=fee_rate)
 
         self.position_tracker = PositionTracker(
             pair=pair_config.pair,
@@ -114,7 +114,7 @@ class GridStrategy:
 
             for level, side, order in fills:
                 # Update position tracker
-                fee = order.amount * order.price * 0.001
+                fee = order.amount * order.price * self.order_manager.fee_rate
                 self.position_tracker.record_fill(side, order.price, order.amount, fee)
 
                 # Get next grid action

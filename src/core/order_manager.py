@@ -14,10 +14,13 @@ class OrderManager:
     open orders with previously tracked ones.
     """
 
-    def __init__(self, exchange: AbstractExchange, db: Database, pair: str):
+    def __init__(
+        self, exchange: AbstractExchange, db: Database, pair: str, fee_rate: float = 0.001
+    ):
         self.exchange = exchange
         self.db = db
         self.pair = pair
+        self.fee_rate = fee_rate
 
         # {order_id: grid_level}
         self._tracked_orders: dict[str, int] = {}
@@ -87,7 +90,7 @@ class OrderManager:
                 await self.db.save_order(snapshot)
 
                     # Record trade
-                    fee = snapshot.amount * snapshot.price * 0.001
+                    fee = snapshot.amount * snapshot.price * self.fee_rate
                     trade = Trade(
                         pair=self.pair,
                         side=snapshot.side,
