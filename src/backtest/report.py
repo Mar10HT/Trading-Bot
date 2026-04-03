@@ -6,8 +6,8 @@ from src.storage.models import OrderSide
 
 def print_report(result: BacktestResult):
     """Print a formatted backtest report to console."""
-    pnl_color = "green" if result.realized_pnl >= 0 else "red"
-    pnl_pct = (result.realized_pnl / result.initial_investment * 100) if result.initial_investment > 0 else 0
+    pnl_color = "green" if result.total_return >= 0 else "red"
+    pnl_pct = (result.total_return / result.initial_investment * 100) if result.initial_investment > 0 else 0
 
     click.echo()
     click.echo("=" * 60)
@@ -30,9 +30,13 @@ def print_report(result: BacktestResult):
 
     # Performance
     click.secho("Performance:", bold=True)
-    pnl_sign = "+" if result.realized_pnl >= 0 else ""
-    click.echo(f"  Total P&L:          ", nl=False)
-    click.secho(f"{pnl_sign}${result.realized_pnl:.4f} ({pnl_sign}{pnl_pct:.2f}%)", fg=pnl_color)
+    ret_sign = "+" if result.total_return >= 0 else ""
+    click.echo(f"  Total return:       ", nl=False)
+    click.secho(f"{ret_sign}${result.total_return:.4f} ({ret_sign}{pnl_pct:.2f}%)", fg=pnl_color)
+    rpnl_sign = "+" if result.realized_pnl >= 0 else ""
+    rpnl_color = "green" if result.realized_pnl >= 0 else "red"
+    click.echo(f"  Realized P&L:       ", nl=False)
+    click.secho(f"{rpnl_sign}${result.realized_pnl:.4f}", fg=rpnl_color)
     click.echo(f"  Final equity:       ${result.final_equity:.4f}")
     click.echo(f"  Max drawdown:       ${result.max_drawdown:.4f} ({result.max_drawdown_pct:.2f}%)")
     click.echo(f"  Total fees paid:    ${result.total_fees:.4f}")

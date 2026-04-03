@@ -33,7 +33,10 @@ class BacktestResult:
     total_fees: float = 0.0
 
     # P&L
+    # realized_pnl: profit from completed buy+sell cycles (fees deducted)
     realized_pnl: float = 0.0
+    # total_return: final_equity minus initial_investment (includes unrealized value of holdings)
+    total_return: float = 0.0
     final_equity: float = 0.0
     max_drawdown: float = 0.0
     max_drawdown_pct: float = 0.0
@@ -211,6 +214,13 @@ class Backtester:
         result.final_base_holdings = base_balance
         result.final_quote_balance = quote_balance
         result.final_equity = quote_balance + (base_balance * final_price)
-        result.realized_pnl = result.final_equity - self.investment
+
+        # total_return = equity change including unsold holdings at final price
+        result.total_return = result.final_equity - self.investment
+
+        # realized_pnl = profit from completed buy+sell pairs only (no unrealized)
+        buy_total = sum(t.price * t.amount + t.fee for t in result.trades if t.side == OrderSide.BUY)
+        sell_total = sum(t.price * t.amount - t.fee for t in result.trades if t.side == OrderSide.SELL)
+        result.realized_pnl = sell_total - buy_total
 
         return result
