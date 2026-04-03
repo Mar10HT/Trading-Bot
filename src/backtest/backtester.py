@@ -126,65 +126,71 @@ class Backtester:
             high = candle["high"]
             timestamp = candle["timestamp"]
 
-            filled_levels = []
+            # Inner loop: keep scanning for fills until no more orders fill within this candle.
+            # This handles the case where a newly placed order also crosses the candle's range.
+            while True:
+                filled_levels = []
 
-            for level, order in open_orders.items():
-                filled = False
+                for level, order in open_orders.items():
+                    filled = False
 
-                if order["side"] == OrderSide.BUY and low <= order["price"]:
-                    # Buy order filled
-                    cost = order["amount"] * order["price"]
-                    fee = cost * self.fee_rate
-                    if quote_balance >= cost + fee:
-                        quote_balance -= (cost + fee)
-                        base_balance += order["amount"]
-                        result.total_fees += fee
-                        result.trades.append(BacktestTrade(
-                            timestamp=timestamp,
-                            side=OrderSide.BUY,
-                            price=order["price"],
-                            amount=order["amount"],
-                            fee=fee,
-                            grid_level=level,
-                        ))
-                        filled = True
+                    if order["side"] == OrderSide.BUY and low <= order["price"]:
+                        # Buy order filled
+                        cost = order["amount"] * order["price"]
+                        fee = cost * self.fee_rate
+                        if quote_balance >= cost + fee:
+                            quote_balance -= (cost + fee)
+                            base_balance += order["amount"]
+                            result.total_fees += fee
+                            result.trades.append(BacktestTrade(
+                                timestamp=timestamp,
+                                side=OrderSide.BUY,
+                                price=order["price"],
+                                amount=order["amount"],
+                                fee=fee,
+                                grid_level=level,
+                            ))
+                            filled = True
 
-                elif order["side"] == OrderSide.SELL and high >= order["price"]:
-                    # Sell order filled
-                    if base_balance >= order["amount"]:
-                        revenue = order["amount"] * order["price"]
-                        fee = revenue * self.fee_rate
-                        quote_balance += (revenue - fee)
-                        base_balance -= order["amount"]
-                        result.total_fees += fee
-                        result.trades.append(BacktestTrade(
-                            timestamp=timestamp,
-                            side=OrderSide.SELL,
-                            price=order["price"],
-                            amount=order["amount"],
-                            fee=fee,
-                            grid_level=level,
-                        ))
-                        filled = True
+                    elif order["side"] == OrderSide.SELL and high >= order["price"]:
+                        # Sell order filled
+                        if base_balance >= order["amount"]:
+                            revenue = order["amount"] * order["price"]
+                            fee = revenue * self.fee_rate
+                            quote_balance += (revenue - fee)
+                            base_balance -= order["amount"]
+                            result.total_fees += fee
+                            result.trades.append(BacktestTrade(
+                                timestamp=timestamp,
+                                side=OrderSide.SELL,
+                                price=order["price"],
+                                amount=order["amount"],
+                                fee=fee,
+                                grid_level=level,
+                            ))
+                            filled = True
 
-                if filled:
-                    filled_levels.append(level)
+                    if filled:
+                        filled_levels.append(level)
 
-            # Process filled orders → place new ones
-            for level in filled_levels:
-                filled_order = open_orders.pop(level)
-                next_action = self.engine.on_order_filled(level, filled_order["side"])
+                if not filled_levels:
+                    break  # No new fills this pass — move to next candle
 
-                if next_action:
-                    open_orders[next_action.grid_level] = {
-                        "side": next_action.side,
-                        "price": next_action.price,
-                        "amount": next_action.amount,
-                    }
+                # Process filled orders → place new ones
+                for level in filled_levels:
+                    filled_order = open_orders.pop(level)
+                    next_action = self.engine.on_order_filled(level, filled_order["side"])
 
-                    # Count completed cycles (a buy followed by sell = 1 cycle)
-                    if filled_order["side"] == OrderSide.SELL:
-                        result.completed_cycles += 1
+                    if next_action:
+                        open_orders[next_action.grid_level] = {
+                            "side": next_action.side,
+                            "price": next_action.price,
+                            "amount": next_action.amount,
+                        }
+
+                        # Count completed cycles (a sell following a buy = 1 cycle)
+                        if filled_order["side"] == OrderSide.SELL:
+                            result.completed_cycles += 1
 
             # Calculate current equity for drawdown tracking
             close_price = candle["close"]
