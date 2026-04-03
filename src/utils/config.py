@@ -12,6 +12,20 @@ class PairConfig(BaseModel):
     num_grids: int
     investment: float
 
+    @field_validator("lower_price")
+    @classmethod
+    def lower_price_must_be_positive(cls, v: float) -> float:
+        if v <= 0:
+            raise ValueError("lower_price must be positive")
+        return v
+
+    @field_validator("investment")
+    @classmethod
+    def investment_must_be_positive(cls, v: float) -> float:
+        if v <= 0:
+            raise ValueError("investment must be positive")
+        return v
+
     @field_validator("num_grids")
     @classmethod
     def grids_must_be_positive(cls, v: int) -> int:
@@ -22,7 +36,8 @@ class PairConfig(BaseModel):
     @field_validator("upper_price")
     @classmethod
     def upper_must_exceed_lower(cls, v: float, info) -> float:
-        if "lower_price" in info.data and v <= info.data["lower_price"]:
+        lower = info.data.get("lower_price")
+        if lower is not None and v <= lower:
             raise ValueError("upper_price must be greater than lower_price")
         return v
 
